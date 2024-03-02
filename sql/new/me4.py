@@ -1,36 +1,22 @@
 import os
 import csv
-import sqlparse
 import tkinter as tk
 from tkinter import filedialog
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-def tokenize_and_parse(sql_code):
-    # Tokenize SQL code
-    tokens = sqlparse.parse(sql_code)
-    
-    # Parse tokens into a structured format (e.g., abstract syntax tree)
-    parsed_queries = []
-    for token in tokens:
-        parsed_queries.append(token.tokens)
-    
-    return parsed_queries
-
-def calculate_similarity(lecturer_parsed, student_parsed):
-    # Convert parsed queries to strings
-    lecturer_query_str = ' '.join(str(query) for query in lecturer_parsed)
-    student_query_str = ' '.join(str(query) for query in student_parsed)
-    
-    # Calculate TF-IDF vectors
+def calculate_similarity(lecturer_sql, student_sql):
+    # Calculate TF-IDF vectors for the SQL code
     vectorizer = TfidfVectorizer()
-    tfidf_matrix = vectorizer.fit_transform([lecturer_query_str, student_query_str])
+    tfidf_matrix = vectorizer.fit_transform([lecturer_sql, student_sql])
     
     # Calculate cosine similarity between TF-IDF vectors
-    similarity_matrix = cosine_similarity(tfidf_matrix)
-    similarity = similarity_matrix[0, 1]  # Get similarity score between the two queries
+    similarity = cosine_similarity(tfidf_matrix)[0, 1]
     
-    return similarity
+    # Convert similarity score to percentage
+    similarity_percentage = similarity * 100
+    
+    return similarity_percentage
 
 def browse_file(entry_widget):
     filename = filedialog.askopenfilename(filetypes=[("SQL files", "*.sql")])
@@ -46,7 +32,6 @@ def grade_student_submissions(lecturer_sql_file, student_file_or_folder, output_
     # Read lecturer's SQL code
     with open(lecturer_sql_file, 'r') as f:
         lecturer_sql = f.read()
-    lecturer_parsed = tokenize_and_parse(lecturer_sql)
     
     # Process student submissions
     if os.path.isdir(student_file_or_folder):
@@ -59,8 +44,7 @@ def grade_student_submissions(lecturer_sql_file, student_file_or_folder, output_
         student_name = os.path.splitext(os.path.basename(student_file))[0]
         with open(student_file, 'r') as f:
             student_sql = f.read()
-        student_parsed = tokenize_and_parse(student_sql)
-        similarity = calculate_similarity(lecturer_parsed, student_parsed)
+        similarity = calculate_similarity(lecturer_sql, student_sql)
         results.append((student_name, similarity))
     
     # Write results to CSV file (create new file or append to existing file)
@@ -68,7 +52,7 @@ def grade_student_submissions(lecturer_sql_file, student_file_or_folder, output_
     with open(output_file, mode, newline='') as csvfile:
         writer = csv.writer(csvfile)
         if mode == 'w':
-            writer.writerow(['Student Name', 'Similarity Score'])
+            writer.writerow(['Student Name', 'Similarity Score (%)'])
         writer.writerows(results)
 
 def main():
